@@ -8,6 +8,9 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const DAILY_GOAL_ML = Number(process.env.DAILY_GOAL_ML || 2500);
 const OZ_TO_ML = 29.5735;
+const GOAL_ML_PER_KG = Number(process.env.GOAL_ML_PER_KG || 35);
+const MIN_WEIGHT_KG = 20;
+const MAX_WEIGHT_KG = 300;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'intake.json');
 
@@ -17,14 +20,24 @@ function ensureDataFile() {
   }
 
   if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ entries: [] }, null, 2));
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ entries: [], profiles: {} }, null, 2));
   }
 }
 
 function readData() {
   ensureDataFile();
   const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-  return JSON.parse(raw);
+  const parsed = JSON.parse(raw);
+
+  if (!Array.isArray(parsed.entries)) {
+    parsed.entries = [];
+  }
+
+  if (!parsed.profiles || typeof parsed.profiles !== 'object' || Array.isArray(parsed.profiles)) {
+    parsed.profiles = {};
+  }
+
+  return parsed;
 }
 
 function writeData(data) {
@@ -63,12 +76,80 @@ function amountToMl(amount, unit = 'ml') {
   return Math.round(parsedAmount);
 }
 
+function normalizeWeightKg(weightKg) {
+  const parsedWeight = Number(weightKg);
+
+  if (!Number.isFinite(parsedWeight)) {
+    return null;
+  }
+
+  const roundedWeight = Math.round(parsedWeight * 10) / 10;
+
+  if (roundedWeight < MIN_WEIGHT_KG || roundedWeight > MAX_WEIGHT_KG) {
+    return null;
+  }
+
+  return roundedWeight;
+}
+
+function goalFromWeight(weightKg) {
+  return Math.round(weightKg * GOAL_ML_PER_KG);
+}
+
+function resolveDailyGoalMl(profileWeightKg) {
+  if (typeof profileWeightKg === 'number') {
+    return goalFromWeight(profileWeightKg);
+  }
+
+  return DAILY_GOAL_ML;
+}
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/meta', (req, res) => {
   res.json({
-    dailyGoalMl: DAILY_GOAL_ML
+    dailyGoalMl: DAILY_GOAL_ML,
+    goalMlPerKg: GOAL_ML_PER_KG,
+    minWeightKg: MIN_WEIGHT_KG,
+    maxWeightKg: MAX_WEIGHT_KG
+  });
+});
+
+app.get('/api/profile', (req, res) => {
+  const userId = normalizeUserId(req.query.userId);
+  const data = readData();
+  const profile = data.profiles[userId] || {};
+
+  res.json({
+    userId,
+    weightKg: typeof profile.weightKg === 'number' ? profile.weightKg : null,
+    dailyGoalMl: resolveDailyGoalMl(profile.weightKg)
+  });
+});
+
+app.put('/api/profile', (req, res) => {
+  const userId = normalizeUserId(req.body.userId);
+  const weightKg = normalizeWeightKg(req.body.weightKg);
+
+  if (weightKg === null) {
+    return res
+      .status(400)
+      .json({ error: `Weight must be a number between ${MIN_WEIGHT_KG} and ${MAX_WEIGHT_KG} kg.` });
+  }
+
+  const data = readData();
+  data.profiles[userId] = {
+    ...data.profiles[userId],
+    weightKg,
+    updatedAt: new Date().toISOString()
+  };
+  writeData(data);
+
+  return res.json({
+    userId,
+    weightKg,
+    dailyGoalMl: resolveDailyGoalMl(weightKg)
   });
 });
 
@@ -137,6 +218,8 @@ app.get('/api/stats/today', (req, res) => {
   const date = todayDateString();
   const userId = normalizeUserId(req.query.userId);
   const data = readData();
+  const profile = data.profiles[userId] || {};
+  const dailyGoalMl = resolveDailyGoalMl(profile.weightKg);
   const consumedMl = sumForDate(
     data.entries.filter((entry) => normalizeUserId(entry.userId) === userId),
     date
@@ -146,9 +229,10 @@ app.get('/api/stats/today', (req, res) => {
     date,
     userId,
     consumedMl,
-    dailyGoalMl: DAILY_GOAL_ML,
-    remainingMl: Math.max(DAILY_GOAL_ML - consumedMl, 0),
-    progress: Math.min(consumedMl / DAILY_GOAL_ML, 1)
+    dailyGoalMl,
+    weightKg: typeof profile.weightKg === 'number' ? profile.weightKg : null,
+    remainingMl: Math.max(dailyGoalMl - consumedMl, 0),
+    progress: dailyGoalMl > 0 ? Math.min(consumedMl / dailyGoalMl, 1) : 0
   });
 });
 

@@ -23,11 +23,18 @@
       </header>
 
       <section class="card user-card">
-        <label>
-          User profile
-          <input id="userInput" name="userId" type="text" maxlength="30" placeholder="e.g. alex" />
-        </label>
-        <small>Each user has separate daily totals and history.</small>
+        <div class="user-grid">
+          <label>
+            User profile
+            <input id="userInput" name="userId" type="text" maxlength="30" placeholder="e.g. alex" />
+          </label>
+          <label>
+            Weight (kg)
+            <input id="weightInput" name="weightKg" type="number" min="20" max="300" step="0.1" placeholder="e.g. 70" />
+          </label>
+          <button id="saveProfileBtn" type="button" class="profile-btn">Save profile</button>
+        </div>
+        <small id="goalHint">Set weight to calculate a personalized daily goal.</small>
       </section>
 
       <section class="summary card">
