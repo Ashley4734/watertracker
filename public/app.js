@@ -26,11 +26,26 @@ const localeTime = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit'
 });
 
+const OZ_PER_ML = 1 / 29.5735;
+const LB_PER_KG = 2.20462;
+
+function mlToOz(amountMl) {
+  return Math.round(amountMl * OZ_PER_ML * 10) / 10;
+}
+
+function kgToLb(weightKg) {
+  return Math.round(weightKg * LB_PER_KG * 10) / 10;
+}
+
+function lbToKg(weightLb) {
+  return Math.round((weightLb / LB_PER_KG) * 10) / 10;
+}
+
 let currentUserId = localStorage.getItem('hydra-user') || 'default';
 let profileLimits = {
-  minWeightKg: 20,
-  maxWeightKg: 300,
-  goalMlPerKg: 35
+  minWeightLb: 44,
+  maxWeightLb: 660,
+  goalOzPerLb: 0.56
 };
 
 function setProgress(progress) {
@@ -48,11 +63,7 @@ function normalizeUserId(value) {
 }
 
 function formatAmount(entry) {
-  if (entry.unit === 'oz') {
-    return `${Math.round((entry.amount / 29.5735) * 10) / 10} oz`;
-  }
-
-  return `${entry.amount} ml`;
+  return `${mlToOz(entry.amount)} oz`;
 }
 
 function renderEntries(entries) {
@@ -92,7 +103,7 @@ function readWeightInput() {
     return null;
   }
 
-  if (parsed < profileLimits.minWeightKg || parsed > profileLimits.maxWeightKg) {
+  if (parsed < profileLimits.minWeightLb || parsed > profileLimits.maxWeightLb) {
     return null;
   }
 
@@ -103,10 +114,10 @@ async function loadProfile() {
   const encodedUserId = encodeURIComponent(currentUserId);
   const profileRes = await fetch(`/api/profile?userId=${encodedUserId}`);
   const profile = await profileRes.json();
-  weightInput.value = typeof profile.weightKg === 'number' ? String(profile.weightKg) : '';
+  weightInput.value = typeof profile.weightKg === 'number' ? String(kgToLb(profile.weightKg)) : '';
 
   if (typeof profile.weightKg === 'number') {
-    goalHint.textContent = `Goal uses ${profile.weightKg} kg × ${profileLimits.goalMlPerKg} ml/kg.`;
+    goalHint.textContent = `Goal uses ${kgToLb(profile.weightKg)} lb × ${profileLimits.goalOzPerLb.toFixed(2)} oz/lb.`;
   } else {
     goalHint.textContent = 'Set weight to calculate a personalized daily goal.';
   }
@@ -122,11 +133,15 @@ async function refresh() {
   const stats = await statsRes.json();
   const { entries } = await entriesRes.json();
 
-  consumedValue.textContent = `${stats.consumedMl} ml`;
-  goalValue.textContent = `of ${stats.dailyGoalMl} ml`;
+  const consumedOz = mlToOz(stats.consumedMl);
+  const goalOz = mlToOz(stats.dailyGoalMl);
+  const remainingOz = mlToOz(stats.remainingMl);
+
+  consumedValue.textContent = `${consumedOz} oz`;
+  goalValue.textContent = `of ${goalOz} oz`;
   remainingValue.textContent =
     stats.remainingMl > 0
-      ? `${stats.remainingMl} ml left today`
+      ? `${remainingOz} oz left today`
       : 'Goal reached! Great hydration today 🎉';
 
   setProgress(stats.progress);
@@ -141,13 +156,13 @@ async function initialize() {
   const metaRes = await fetch('/api/meta');
   const meta = await metaRes.json();
   profileLimits = {
-    minWeightKg: meta.minWeightKg,
-    maxWeightKg: meta.maxWeightKg,
-    goalMlPerKg: meta.goalMlPerKg
+    minWeightLb: kgToLb(meta.minWeightKg),
+    maxWeightLb: kgToLb(meta.maxWeightKg),
+    goalOzPerLb: Math.round((meta.goalMlPerKg / LB_PER_KG) * OZ_PER_ML * 100) / 100
   };
 
-  weightInput.min = profileLimits.minWeightKg;
-  weightInput.max = profileLimits.maxWeightKg;
+  weightInput.min = profileLimits.minWeightLb;
+  weightInput.max = profileLimits.maxWeightLb;
 
   await loadProfile();
   await refresh();
@@ -157,7 +172,7 @@ entryForm.addEventListener('submit', async (event) => {
   event.preventDefault();
 
   const amount = Number(amountInput.value);
-  const unit = unitInput.value;
+  const unit = 'oz';
   const note = noteInput.value.trim();
 
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -186,7 +201,7 @@ entryForm.addEventListener('submit', async (event) => {
 document.querySelectorAll('.quick-btn').forEach((button) => {
   button.addEventListener('click', async () => {
     const amount = Number(button.dataset.amount);
-    const unit = button.dataset.unit === 'oz' ? 'oz' : 'ml';
+    const unit = 'oz';
     await fetch('/api/entries', {
       method: 'POST',
       headers: {
@@ -199,10 +214,10 @@ document.querySelectorAll('.quick-btn').forEach((button) => {
 });
 
 saveProfileBtn.addEventListener('click', async () => {
-  const weightKg = readWeightInput();
+  const weightLb = readWeightInput();
 
-  if (weightKg === null) {
-    goalHint.textContent = `Enter a valid weight between ${profileLimits.minWeightKg} and ${profileLimits.maxWeightKg} kg.`;
+  if (weightLb === null) {
+    goalHint.textContent = `Enter a valid weight between ${profileLimits.minWeightLb} and ${profileLimits.maxWeightLb} lb.`;
     weightInput.focus();
     return;
   }
@@ -212,7 +227,7 @@ saveProfileBtn.addEventListener('click', async () => {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ userId: currentUserId, weightKg })
+    body: JSON.stringify({ userId: currentUserId, weightKg: lbToKg(weightLb) })
   });
 
   if (!response.ok) {
@@ -221,7 +236,7 @@ saveProfileBtn.addEventListener('click', async () => {
   }
 
   const profile = await response.json();
-  goalHint.textContent = `Saved. Goal now uses ${profile.weightKg} kg × ${profileLimits.goalMlPerKg} ml/kg.`;
+  goalHint.textContent = `Saved. Goal now uses ${kgToLb(profile.weightKg)} lb × ${profileLimits.goalOzPerLb.toFixed(2)} oz/lb.`;
   await refresh();
 });
 

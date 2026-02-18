@@ -29,8 +29,8 @@
             <input id="userInput" name="userId" type="text" maxlength="30" placeholder="e.g. alex" />
           </label>
           <label>
-            Weight (kg)
-            <input id="weightInput" name="weightKg" type="number" min="20" max="300" step="0.1" placeholder="e.g. 70" />
+            Weight (lb)
+            <input id="weightInput" name="weightLb" type="number" min="44" max="660" step="0.1" placeholder="e.g. 154" />
           </label>
           <button id="saveProfileBtn" type="button" class="profile-btn">Save profile</button>
         </div>
@@ -44,16 +44,16 @@
             <circle cx="60" cy="60" r="52" class="ring-value" id="ringValue" />
           </svg>
           <div class="progress-text">
-            <p id="consumedValue">0 ml</p>
-            <small id="goalValue">of 2500 ml</small>
+            <p id="consumedValue">0 oz</p>
+            <small id="goalValue">of 84.5 oz</small>
           </div>
         </div>
         <div class="summary-details">
-          <p id="remainingValue" class="remaining">2500 ml left today</p>
+          <p id="remainingValue" class="remaining">84.5 oz left today</p>
           <div class="quick-actions">
-            <button class="quick-btn" data-amount="200" data-unit="ml">+200 ml</button>
+            <button class="quick-btn" data-amount="8" data-unit="oz">+8 oz</button>
             <button class="quick-btn" data-amount="12" data-unit="oz">+12 oz</button>
-            <button class="quick-btn" data-amount="500" data-unit="ml">+500 ml</button>
+            <button class="quick-btn" data-amount="16" data-unit="oz">+16 oz</button>
           </div>
         </div>
       </section>
@@ -63,12 +63,11 @@
         <form id="entryForm" class="entry-form">
           <label>
             Amount
-            <input id="amountInput" name="amount" type="number" min="1" step="0.1" required placeholder="e.g. 250" />
+            <input id="amountInput" name="amount" type="number" min="1" step="0.1" required placeholder="e.g. 12" />
           </label>
           <label>
             Unit
             <select id="unitInput" name="unit">
-              <option value="ml">ml</option>
               <option value="oz">oz</option>
             </select>
           </label>
