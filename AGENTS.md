@@ -5,6 +5,8 @@
 - Runtime entry point: `server.js`.
 - Front-end assets live in `public/`.
 - Persistent intake data is stored in `data/intake.json` (created automatically on first run).
+- Intake entries now support `ml` and `oz` input units, normalized to milliliters for goal calculations.
+- The app supports multiple users by `userId`; API reads/writes should include `userId` to isolate stats and entry lists.
 
 ## Development Workflow
 - Install dependencies with `npm install`.

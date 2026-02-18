@@ -7,6 +7,7 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 3000);
 const DAILY_GOAL_ML = Number(process.env.DAILY_GOAL_ML || 2500);
+const OZ_TO_ML = 29.5735;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'intake.json');
 
@@ -40,6 +41,28 @@ function sumForDate(entries, date) {
     .reduce((total, entry) => total + entry.amount, 0);
 }
 
+function normalizeUserId(value) {
+  return String(value || 'default')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '')
+    .slice(0, 30) || 'default';
+}
+
+function amountToMl(amount, unit = 'ml') {
+  const parsedAmount = Number(amount);
+
+  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    return null;
+  }
+
+  if (unit === 'oz') {
+    return Math.round(parsedAmount * OZ_TO_ML);
+  }
+
+  return Math.round(parsedAmount);
+}
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -51,23 +74,26 @@ app.get('/api/meta', (req, res) => {
 
 app.get('/api/entries', (req, res) => {
   const { date = todayDateString() } = req.query;
+  const userId = normalizeUserId(req.query.userId);
   const data = readData();
   const entries = data.entries
-    .filter((entry) => entry.date === date)
+    .filter((entry) => entry.date === date && normalizeUserId(entry.userId) === userId)
     .sort((a, b) => new Date(b.consumedAt) - new Date(a.consumedAt));
 
   res.json({
     date,
+    userId,
     entries
   });
 });
 
 app.post('/api/entries', (req, res) => {
-  const { amount, consumedAt, note = '' } = req.body;
-  const parsedAmount = Number(amount);
+  const { amount, unit = 'ml', consumedAt, note = '', userId: rawUserId } = req.body;
+  const normalizedUnit = unit === 'oz' ? 'oz' : 'ml';
+  const amountMl = amountToMl(amount, normalizedUnit);
 
-  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-    return res.status(400).json({ error: 'Amount must be a positive number (in ml).' });
+  if (!amountMl) {
+    return res.status(400).json({ error: 'Amount must be a positive number.' });
   }
 
   const entryDate = consumedAt ? new Date(consumedAt) : new Date();
@@ -79,7 +105,9 @@ app.post('/api/entries', (req, res) => {
   const data = readData();
   const entry = {
     id: crypto.randomUUID(),
-    amount: Math.round(parsedAmount),
+    userId: normalizeUserId(rawUserId),
+    amount: amountMl,
+    unit: normalizedUnit,
     consumedAt: entryDate.toISOString(),
     date: entryDate.toISOString().slice(0, 10),
     note: String(note).trim().slice(0, 120)
@@ -107,11 +135,16 @@ app.delete('/api/entries/:id', (req, res) => {
 
 app.get('/api/stats/today', (req, res) => {
   const date = todayDateString();
+  const userId = normalizeUserId(req.query.userId);
   const data = readData();
-  const consumedMl = sumForDate(data.entries, date);
+  const consumedMl = sumForDate(
+    data.entries.filter((entry) => normalizeUserId(entry.userId) === userId),
+    date
+  );
 
   res.json({
     date,
+    userId,
     consumedMl,
     dailyGoalMl: DAILY_GOAL_ML,
     remainingMl: Math.max(DAILY_GOAL_ML - consumedMl, 0),

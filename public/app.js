@@ -5,7 +5,9 @@ const remainingValue = document.getElementById('remainingValue');
 const ringValue = document.getElementById('ringValue');
 const entryForm = document.getElementById('entryForm');
 const amountInput = document.getElementById('amountInput');
+const unitInput = document.getElementById('unitInput');
 const noteInput = document.getElementById('noteInput');
+const userInput = document.getElementById('userInput');
 const entryList = document.getElementById('entryList');
 const entryTemplate = document.getElementById('entryTemplate');
 const entryCount = document.getElementById('entryCount');
@@ -22,11 +24,28 @@ const localeTime = new Intl.DateTimeFormat(undefined, {
 });
 
 let dailyGoalMl = 2500;
+let currentUserId = localStorage.getItem('hydra-user') || 'default';
 
 function setProgress(progress) {
   const clamped = Math.max(0, Math.min(progress, 1));
   ringValue.style.strokeDasharray = `${ringCircumference}`;
   ringValue.style.strokeDashoffset = `${ringCircumference * (1 - clamped)}`;
+}
+
+function normalizeUserId(value) {
+  return String(value || 'default')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '')
+    .slice(0, 30) || 'default';
+}
+
+function formatAmount(entry) {
+  if (entry.unit === 'oz') {
+    return `${Math.round((entry.amount / 29.5735) * 10) / 10} oz`;
+  }
+
+  return `${entry.amount} ml`;
 }
 
 function renderEntries(entries) {
@@ -43,7 +62,7 @@ function renderEntries(entries) {
 
   entries.forEach((entry) => {
     const node = entryTemplate.content.firstElementChild.cloneNode(true);
-    node.querySelector('.entry-amount').textContent = `${entry.amount} ml`;
+    node.querySelector('.entry-amount').textContent = formatAmount(entry);
     const notePart = entry.note ? ` · ${entry.note}` : '';
     node.querySelector('.entry-meta').textContent = `${localeTime.format(new Date(entry.consumedAt))}${notePart}`;
 
@@ -60,9 +79,10 @@ function renderEntries(entries) {
 }
 
 async function refresh() {
+  const encodedUserId = encodeURIComponent(currentUserId);
   const [statsRes, entriesRes] = await Promise.all([
-    fetch('/api/stats/today'),
-    fetch('/api/entries')
+    fetch(`/api/stats/today?userId=${encodedUserId}`),
+    fetch(`/api/entries?userId=${encodedUserId}`)
   ]);
 
   const stats = await statsRes.json();
@@ -81,6 +101,7 @@ async function refresh() {
 
 async function initialize() {
   todayLabel.textContent = localeDate.format(new Date());
+  userInput.value = currentUserId;
   const metaRes = await fetch('/api/meta');
   const meta = await metaRes.json();
   dailyGoalMl = meta.dailyGoalMl;
@@ -92,6 +113,7 @@ entryForm.addEventListener('submit', async (event) => {
   event.preventDefault();
 
   const amount = Number(amountInput.value);
+  const unit = unitInput.value;
   const note = noteInput.value.trim();
 
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -104,7 +126,7 @@ entryForm.addEventListener('submit', async (event) => {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ amount, note })
+    body: JSON.stringify({ amount, unit, note, userId: currentUserId })
   });
 
   if (!response.ok) {
@@ -112,22 +134,31 @@ entryForm.addEventListener('submit', async (event) => {
   }
 
   entryForm.reset();
+  unitInput.value = unit;
   amountInput.focus();
   await refresh();
 });
 
 document.querySelectorAll('.quick-btn').forEach((button) => {
   button.addEventListener('click', async () => {
-    const amount = Number(button.dataset.ml);
+    const amount = Number(button.dataset.amount);
+    const unit = button.dataset.unit === 'oz' ? 'oz' : 'ml';
     await fetch('/api/entries', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ amount })
+      body: JSON.stringify({ amount, unit, userId: currentUserId })
     });
     await refresh();
   });
+});
+
+userInput.addEventListener('change', async () => {
+  currentUserId = normalizeUserId(userInput.value);
+  userInput.value = currentUserId;
+  localStorage.setItem('hydra-user', currentUserId);
+  await refresh();
 });
 
 initialize();
