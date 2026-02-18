@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HydraTrack · Water Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Daily hydration</p>
+          <h1>HydraTrack</h1>
+        </div>
+        <p id="todayLabel" class="today"></p>
+      </header>
+
+      <section class="summary card">
+        <div class="progress-wrap">
+          <svg viewBox="0 0 120 120" class="ring" aria-hidden="true">
+            <circle cx="60" cy="60" r="52" class="ring-bg" />
+            <circle cx="60" cy="60" r="52" class="ring-value" id="ringValue" />
+          </svg>
+          <div class="progress-text">
+            <p id="consumedValue">0 ml</p>
+            <small id="goalValue">of 2500 ml</small>
+          </div>
+        </div>
+        <div class="summary-details">
+          <p id="remainingValue" class="remaining">2500 ml left today</p>
+          <div class="quick-actions">
+            <button class="quick-btn" data-ml="200">+200 ml</button>
+            <button class="quick-btn" data-ml="300">+300 ml</button>
+            <button class="quick-btn" data-ml="500">+500 ml</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Add water intake</h2>
+        <form id="entryForm" class="entry-form">
+          <label>
+            Amount (ml)
+            <input id="amountInput" name="amount" type="number" min="1" required placeholder="e.g. 250" />
+          </label>
+          <label>
+            Note (optional)
+            <input id="noteInput" name="note" type="text" maxlength="120" placeholder="Bottle, glass, workout…" />
+          </label>
+          <button type="submit">Save intake</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="history-head">
+          <h2>Today’s entries</h2>
+          <p id="entryCount">0 entries</p>
+        </div>
+        <ul id="entryList" class="entry-list"></ul>
+      </section>
+    </main>
+
+    <template id="entryTemplate">
+      <li class="entry-item">
+        <div>
+          <p class="entry-amount"></p>
+          <p class="entry-meta"></p>
+        </div>
+        <button class="delete-btn" type="button">Remove</button>
+      </li>
+    </template>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
