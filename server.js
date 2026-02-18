@@ -62,18 +62,18 @@ function normalizeUserId(value) {
     .slice(0, 30) || 'default';
 }
 
-function amountToMl(amount, unit = 'ml') {
+function amountToMl(amount, unit = 'oz') {
   const parsedAmount = Number(amount);
 
   if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
     return null;
   }
 
-  if (unit === 'oz') {
-    return Math.round(parsedAmount * OZ_TO_ML);
+  if (unit !== 'oz') {
+    return null;
   }
 
-  return Math.round(parsedAmount);
+  return Math.round(parsedAmount * OZ_TO_ML);
 }
 
 function normalizeWeightKg(weightKg) {
@@ -169,8 +169,13 @@ app.get('/api/entries', (req, res) => {
 });
 
 app.post('/api/entries', (req, res) => {
-  const { amount, unit = 'ml', consumedAt, note = '', userId: rawUserId } = req.body;
-  const normalizedUnit = unit === 'oz' ? 'oz' : 'ml';
+  const { amount, unit = 'oz', consumedAt, note = '', userId: rawUserId } = req.body;
+  const normalizedUnit = unit === 'oz' ? 'oz' : null;
+
+  if (!normalizedUnit) {
+    return res.status(400).json({ error: 'Amount unit must be ounces (oz).' });
+  }
+
   const amountMl = amountToMl(amount, normalizedUnit);
 
   if (!amountMl) {

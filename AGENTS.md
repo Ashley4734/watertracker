@@ -5,8 +5,8 @@
 - Runtime entry point: `server.js`.
 - Front-end assets live in `public/`.
 - Persistent intake data is stored in `data/intake.json` (created automatically on first run).
-- Intake entries now support `ml` and `oz` input units, normalized to milliliters for goal calculations.
-- User profiles now include `weightKg`; personalized daily goal is calculated as `weightKg * GOAL_ML_PER_KG` (default 35 ml/kg), with `DAILY_GOAL_ML` as fallback when weight is unset.
+- Intake entries accept only `oz` input units (American measurements) and are normalized to milliliters internally for goal calculations.
+- User profiles persist `weightKg` in the API/storage, while the UI captures and displays body weight in pounds (`lb`). Personalized daily goal still uses `weightKg * GOAL_ML_PER_KG` (default 35 ml/kg), with `DAILY_GOAL_ML` as fallback when weight is unset.
 - API endpoints `/api/profile` (GET/PUT) manage per-user weight settings.
 - Mobile UX is optimized for narrow screens (stacked forms, full-width touch targets, responsive quick actions).
 - The app supports multiple users by `userId`; API reads/writes should include `userId` to isolate stats and entry lists.
@@ -20,3 +20,5 @@
 ## Deployment
 - Deploy with the included `Dockerfile`.
 - In Coolify, mount a persistent volume at `/app/data` to preserve intake history across redeploys.
+
+- UI text, quick actions, and daily totals are displayed in ounces (`oz`) for American measurement consistency.

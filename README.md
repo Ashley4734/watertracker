@@ -3,10 +3,10 @@
 A clean, modern water tracking web app you can deploy on a Coolify VPS.
 
 ## Features
-- Track water intake entries in milliliters or ounces.
-- Quick-add buttons for common ml/oz amounts.
-- Daily goal progress ring with per-user goal based on saved body weight.
-- Per-user intake history, weight profile, and personalized goal by selecting a user profile.
+- Track water intake entries in ounces (US customary).
+- Quick-add buttons for common ounce amounts.
+- Daily goal progress ring shown in ounces with per-user goal based on saved body weight.
+- Per-user intake history, weight profile (entered in pounds), and personalized goal by selecting a user profile.
 - Entry history with optional notes and delete action.
 - Data persistence to `data/intake.json`.
 
