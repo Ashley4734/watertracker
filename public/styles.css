@@ -154,7 +154,7 @@ button {
 .entry-form {
   margin-top: 0.75rem;
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1fr 0.6fr 1fr auto;
   gap: 0.65rem;
 }
 
@@ -247,4 +247,29 @@ button {
   .entry-form button {
     justify-self: start;
   }
+}
+
+.user-card {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.user-card label {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.user-card input,
+.entry-form select {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text);
+  padding: 0.55rem 0.7rem;
+}
+
+.user-card small {
+  color: var(--muted);
 }
