@@ -8,6 +8,9 @@ const amountInput = document.getElementById('amountInput');
 const unitInput = document.getElementById('unitInput');
 const noteInput = document.getElementById('noteInput');
 const userInput = document.getElementById('userInput');
+const weightInput = document.getElementById('weightInput');
+const saveProfileBtn = document.getElementById('saveProfileBtn');
+const goalHint = document.getElementById('goalHint');
 const entryList = document.getElementById('entryList');
 const entryTemplate = document.getElementById('entryTemplate');
 const entryCount = document.getElementById('entryCount');
@@ -23,8 +26,12 @@ const localeTime = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit'
 });
 
-let dailyGoalMl = 2500;
 let currentUserId = localStorage.getItem('hydra-user') || 'default';
+let profileLimits = {
+  minWeightKg: 20,
+  maxWeightKg: 300,
+  goalMlPerKg: 35
+};
 
 function setProgress(progress) {
   const clamped = Math.max(0, Math.min(progress, 1));
@@ -78,6 +85,33 @@ function renderEntries(entries) {
   entryCount.textContent = `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`;
 }
 
+function readWeightInput() {
+  const parsed = Number(weightInput.value);
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  if (parsed < profileLimits.minWeightKg || parsed > profileLimits.maxWeightKg) {
+    return null;
+  }
+
+  return Math.round(parsed * 10) / 10;
+}
+
+async function loadProfile() {
+  const encodedUserId = encodeURIComponent(currentUserId);
+  const profileRes = await fetch(`/api/profile?userId=${encodedUserId}`);
+  const profile = await profileRes.json();
+  weightInput.value = typeof profile.weightKg === 'number' ? String(profile.weightKg) : '';
+
+  if (typeof profile.weightKg === 'number') {
+    goalHint.textContent = `Goal uses ${profile.weightKg} kg × ${profileLimits.goalMlPerKg} ml/kg.`;
+  } else {
+    goalHint.textContent = 'Set weight to calculate a personalized daily goal.';
+  }
+}
+
 async function refresh() {
   const encodedUserId = encodeURIComponent(currentUserId);
   const [statsRes, entriesRes] = await Promise.all([
@@ -101,11 +135,21 @@ async function refresh() {
 
 async function initialize() {
   todayLabel.textContent = localeDate.format(new Date());
+  currentUserId = normalizeUserId(currentUserId);
   userInput.value = currentUserId;
+
   const metaRes = await fetch('/api/meta');
   const meta = await metaRes.json();
-  dailyGoalMl = meta.dailyGoalMl;
-  goalValue.textContent = `of ${dailyGoalMl} ml`;
+  profileLimits = {
+    minWeightKg: meta.minWeightKg,
+    maxWeightKg: meta.maxWeightKg,
+    goalMlPerKg: meta.goalMlPerKg
+  };
+
+  weightInput.min = profileLimits.minWeightKg;
+  weightInput.max = profileLimits.maxWeightKg;
+
+  await loadProfile();
   await refresh();
 }
 
@@ -154,10 +198,38 @@ document.querySelectorAll('.quick-btn').forEach((button) => {
   });
 });
 
+saveProfileBtn.addEventListener('click', async () => {
+  const weightKg = readWeightInput();
+
+  if (weightKg === null) {
+    goalHint.textContent = `Enter a valid weight between ${profileLimits.minWeightKg} and ${profileLimits.maxWeightKg} kg.`;
+    weightInput.focus();
+    return;
+  }
+
+  const response = await fetch('/api/profile', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ userId: currentUserId, weightKg })
+  });
+
+  if (!response.ok) {
+    goalHint.textContent = 'Could not save profile. Try again.';
+    return;
+  }
+
+  const profile = await response.json();
+  goalHint.textContent = `Saved. Goal now uses ${profile.weightKg} kg × ${profileLimits.goalMlPerKg} ml/kg.`;
+  await refresh();
+});
+
 userInput.addEventListener('change', async () => {
   currentUserId = normalizeUserId(userInput.value);
   userInput.value = currentUserId;
   localStorage.setItem('hydra-user', currentUserId);
+  await loadProfile();
   await refresh();
 });
 
